@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="BouncyBall/BouncyBall.csproj" />
+  <Project Path="KillCursor/KillCursor.csproj" />
+</Solution>
