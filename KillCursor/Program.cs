@@ -1,6 +1,96 @@
 ﻿namespace KillCursor;
 
 /// <summary>
+/// Game difficulty levels.
+/// </summary>
+public enum Difficulty
+{
+    Easy,
+    Normal,
+    Hard,
+    Asian,
+    Hell
+}
+
+/// <summary>
+/// Stores difficulty-specific configuration.
+/// </summary>
+public class DifficultySettings
+{
+    public int InitialEnemyCount { get; set; }
+    public double EnemySpeedMultiplier { get; set; }
+    public double SpeedIncreasePerWave { get; set; }
+    public int MovesBeforeNewWave { get; set; }
+    public double EnemyVisionRange { get; set; }
+    public double AlertRadius { get; set; }
+    public int ObstacleCount { get; set; }
+    public int TokensToWin { get; set; }
+
+    public static DifficultySettings GetSettings(Difficulty difficulty)
+    {
+        return difficulty switch
+        {
+            Difficulty.Easy => new DifficultySettings
+            {
+                InitialEnemyCount = 1,
+                EnemySpeedMultiplier = 0.8,
+                SpeedIncreasePerWave = 0.02,
+                MovesBeforeNewWave = 20,
+                EnemyVisionRange = 8.0,
+                AlertRadius = 12.0,
+                ObstacleCount = 30,
+                TokensToWin = 8
+            },
+            Difficulty.Normal => new DifficultySettings
+            {
+                InitialEnemyCount = 2,
+                EnemySpeedMultiplier = 1.0,
+                SpeedIncreasePerWave = 0.03,
+                MovesBeforeNewWave = 15,
+                EnemyVisionRange = 10.0,
+                AlertRadius = 15.0,
+                ObstacleCount = 25,
+                TokensToWin = 10
+            },
+            Difficulty.Hard => new DifficultySettings
+            {
+                InitialEnemyCount = 3,
+                EnemySpeedMultiplier = 1.2,
+                SpeedIncreasePerWave = 0.05,
+                MovesBeforeNewWave = 12,
+                EnemyVisionRange = 12.0,
+                AlertRadius = 18.0,
+                ObstacleCount = 20,
+                TokensToWin = 12
+            },
+            Difficulty.Asian => new DifficultySettings
+            {
+                InitialEnemyCount = 5,
+                EnemySpeedMultiplier = 1.5,
+                SpeedIncreasePerWave = 0.07,
+                MovesBeforeNewWave = 10,
+                EnemyVisionRange = 15.0,
+                AlertRadius = 20.0,
+                ObstacleCount = 15,
+                TokensToWin = 15
+            },
+            Difficulty.Hell => new DifficultySettings
+            {
+                InitialEnemyCount = 8,
+                EnemySpeedMultiplier = 2.0,
+                SpeedIncreasePerWave = 0.10,
+                MovesBeforeNewWave = 8,
+                EnemyVisionRange = 20.0,
+                AlertRadius = 25.0,
+                ObstacleCount = 10,
+                TokensToWin = 20
+            },
+            _ => GetSettings(Difficulty.Normal)
+        };
+    }
+}
+
+/// <summary>
 /// Cursor survival game where the player must avoid enemies that chase them.
 /// </summary>
 public class Program
@@ -15,15 +105,69 @@ public class Program
         {
             Console.SetWindowSize(InitialGameWidth, InitialGameHeight);
             Console.SetBufferSize(InitialGameWidth, InitialGameHeight);
-            Console.CursorVisible = true; // Make cursor visible so player can see it
+            Console.CursorVisible = true;
         }
         catch (Exception)
         {
             // Ignore if console size cannot be set
         }
 
-        var game = new Game(InitialGameWidth, InitialGameHeight);
-        game.Run();
+        // Game loop - allows restarting
+        bool keepPlaying = true;
+        while (keepPlaying)
+        {
+            // Show difficulty selection menu
+            Difficulty selectedDifficulty = ShowDifficultyMenu();
+
+            var game = new Game(InitialGameWidth, InitialGameHeight, selectedDifficulty);
+            keepPlaying = game.Run();
+        }
+    }
+
+    /// <summary>
+    /// Displays difficulty selection menu and returns selected difficulty.
+    /// </summary>
+    private static Difficulty ShowDifficultyMenu()
+    {
+        Console.Clear();
+        Console.WriteLine();
+        Console.WriteLine("  ╔════════════════════════════════════════╗");
+        Console.WriteLine("  ║     SELECT DIFFICULTY LEVEL            ║");
+        Console.WriteLine("  ╚════════════════════════════════════════╝");
+        Console.WriteLine();
+        Console.WriteLine("  1 - EASY       (Casual play, fewer enemies)");
+        Console.WriteLine("  2 - NORMAL     (Balanced challenge)");
+        Console.WriteLine("  3 - HARD       (Challenging gameplay)");
+        Console.WriteLine("  4 - ASIAN      (Very difficult!)");
+        Console.WriteLine("  5 - HELL       (INSANE NIGHTMARE MODE!)");
+        Console.WriteLine();
+        Console.Write("  Select difficulty (1-5): ");
+
+        while (true)
+        {
+            var key = Console.ReadKey(true).Key;
+
+            switch (key)
+            {
+                case ConsoleKey.D1:
+                case ConsoleKey.NumPad1:
+                    return Difficulty.Easy;
+                case ConsoleKey.D2:
+                case ConsoleKey.NumPad2:
+                    return Difficulty.Normal;
+                case ConsoleKey.D3:
+                case ConsoleKey.NumPad3:
+                    return Difficulty.Hard;
+                case ConsoleKey.D4:
+                case ConsoleKey.NumPad4:
+                    return Difficulty.Asian;
+                case ConsoleKey.D5:
+                case ConsoleKey.NumPad5:
+                    return Difficulty.Hell;
+                default:
+                    continue;
+            }
+        }
     }
 }
 
@@ -119,14 +263,15 @@ public class Player
     public int TokensCollected { get; private set; }
 
     private const char PlayerChar = '@';
-    private const int TokensToWin = 10;
+    private readonly int _tokensToWin;
 
-    public Player(int startX, int startY)
+    public Player(int startX, int startY, int tokensToWin)
     {
         Position = new Position(startX, startY);
         IsAlive = true;
         MoveCount = 0;
         TokensCollected = 0;
+        _tokensToWin = tokensToWin;
     }
 
     /// <summary>
@@ -151,7 +296,7 @@ public class Player
     /// </summary>
     public bool HasWon()
     {
-        return TokensCollected >= TokensToWin;
+        return TokensCollected >= _tokensToWin;
     }
 
     /// <summary>
@@ -172,7 +317,7 @@ public class Player
 
     public int GetTokensNeeded()
     {
-        return TokensToWin;
+        return _tokensToWin;
     }
 }
 
@@ -189,19 +334,20 @@ public class Enemy
     private const char EnemyChar = '*';
     private const char AlertEnemyChar = '!';
     private const double BaseSpeed = 1.0;
-    private const double VisionRange = 10.0;
-    private const double WanderChance = 0.4; // 40% chance to wander when idle
+    private readonly double _visionRange;
+    private const double WanderChance = 0.4;
 
     private readonly Random _random;
-    private int _idleCounter; // Counter for idle behavior
-    private Position? _wanderTarget; // Current wander destination
+    private int _idleCounter;
+    private Position? _wanderTarget;
 
-    public Enemy(int x, int y, double speedMultiplier = 1.0)
+    public Enemy(int x, int y, double speedMultiplier, double visionRange)
     {
         Position = new Position(x, y);
         Speed = BaseSpeed * speedMultiplier;
+        _visionRange = visionRange;
         CanSeePlayer = false;
-        _random = new Random(Guid.NewGuid().GetHashCode()); // Unique seed per enemy
+        _random = new Random(Guid.NewGuid().GetHashCode());
         _idleCounter = 0;
         _wanderTarget = null;
     }
@@ -213,13 +359,11 @@ public class Enemy
     {
         if (CanSeePlayer)
         {
-            // Chase player
-            _wanderTarget = null; // Cancel wandering
+            _wanderTarget = null;
             MoveTowardsTarget(target, obstacles);
         }
         else
         {
-            // Wander when idle
             Wander(obstacles, worldWidth, worldHeight);
         }
     }
@@ -237,7 +381,6 @@ public class Enemy
         int newX = Position.X;
         int newY = Position.Y;
 
-        // Prioritize the axis with greater distance
         if (Math.Abs(dx) > Math.Abs(dy))
         {
             newX += Math.Sign(dx) * (int)Speed;
@@ -263,39 +406,34 @@ public class Enemy
     /// </summary>
     private void Wander(List<Obstacle> obstacles, int worldWidth, int worldHeight)
     {
-        // Increment idle counter
         _idleCounter++;
 
-        // Decide to wander every few turns
-        if (_idleCounter >= 3) // Wait 3 turns between movements
+        if (_idleCounter >= 3)
         {
             _idleCounter = 0;
 
-            // Random chance to move or stay idle
             if (_random.NextDouble() < WanderChance)
             {
-                // Pick random direction (0=up, 1=right, 2=down, 3=left)
                 int direction = _random.Next(4);
                 int newX = Position.X;
                 int newY = Position.Y;
 
                 switch (direction)
                 {
-                    case 0: // Up
+                    case 0:
                         newY -= (int)Speed;
                         break;
-                    case 1: // Right
+                    case 1:
                         newX += (int)Speed;
                         break;
-                    case 2: // Down
+                    case 2:
                         newY += (int)Speed;
                         break;
-                    case 3: // Left
+                    case 3:
                         newX -= (int)Speed;
                         break;
                 }
 
-                // Validate new position
                 if (newX >= 1 && newX < worldWidth - 1 &&
                     newY >= 1 && newY < worldHeight - 1)
                 {
@@ -329,7 +467,7 @@ public class Enemy
     {
         double distance = Position.DistanceTo(playerPosition);
 
-        if (distance > VisionRange)
+        if (distance > _visionRange)
             return false;
 
         return HasLineOfSight(Position, playerPosition, obstacles);
@@ -396,7 +534,7 @@ public class Enemy
 
     public double GetVisionRange()
     {
-        return VisionRange;
+        return _visionRange;
     }
 }
 
@@ -410,15 +548,15 @@ public class ObstacleManager
     private readonly Random _random;
     private readonly int _worldWidth;
     private readonly int _worldHeight;
-
-    private const int ObstacleCount = 25;
+    private readonly int _obstacleCount;
 
     public IReadOnlyList<Obstacle> Obstacles => _obstacles;
 
-    public ObstacleManager(int worldWidth, int worldHeight)
+    public ObstacleManager(int worldWidth, int worldHeight, int obstacleCount)
     {
         _worldWidth = worldWidth;
         _worldHeight = worldHeight - 2;
+        _obstacleCount = obstacleCount;
         _obstacles = new List<Obstacle>();
         _random = new Random();
     }
@@ -429,10 +567,10 @@ public class ObstacleManager
     public void SpawnObstacles(Position playerStart, List<Position> enemyPositions)
     {
         int spawned = 0;
-        int maxAttempts = ObstacleCount * 10;
+        int maxAttempts = _obstacleCount * 10;
         int attempts = 0;
 
-        while (spawned < ObstacleCount && attempts < maxAttempts)
+        while (spawned < _obstacleCount && attempts < maxAttempts)
         {
             attempts++;
             int x = _random.Next(2, _worldWidth - 2);
@@ -590,25 +728,22 @@ public class EnemyManager
     private readonly Random _random;
     private readonly int _worldWidth;
     private readonly int _worldHeight;
-
-    private const int InitialEnemyCount = 2;
-    private const double SpeedIncreasePerWave = 0.03;
-    private const int MovesBeforeNewWave = 15;
-    private const double AlertRadius = 15.0;
+    private readonly DifficultySettings _settings;
 
     private int _currentWave;
     private double _currentSpeedMultiplier;
 
     public IReadOnlyList<Enemy> Enemies => _enemies;
 
-    public EnemyManager(int worldWidth, int worldHeight)
+    public EnemyManager(int worldWidth, int worldHeight, DifficultySettings settings)
     {
         _worldWidth = worldWidth;
         _worldHeight = worldHeight - 2;
+        _settings = settings;
         _enemies = new List<Enemy>();
         _random = new Random();
         _currentWave = 0;
-        _currentSpeedMultiplier = 1.0;
+        _currentSpeedMultiplier = settings.EnemySpeedMultiplier;
     }
 
     /// <summary>
@@ -616,7 +751,7 @@ public class EnemyManager
     /// </summary>
     public void SpawnInitialEnemies()
     {
-        for (int i = 0; i < InitialEnemyCount; i++)
+        for (int i = 0; i < _settings.InitialEnemyCount; i++)
         {
             SpawnEnemyOnBorder(_currentSpeedMultiplier);
         }
@@ -667,7 +802,7 @@ public class EnemyManager
                         if (seeingEnemy.CanSeePlayer)
                         {
                             double distance = alertedEnemy.Position.DistanceTo(seeingEnemy.Position);
-                            if (distance <= AlertRadius)
+                            if (distance <= _settings.AlertRadius)
                             {
                                 alertedEnemy.CanSeePlayer = true;
                                 break;
@@ -684,12 +819,12 @@ public class EnemyManager
     /// </summary>
     public void CheckAndSpawnWave(int playerMoveCount)
     {
-        int expectedWave = 1 + (playerMoveCount / MovesBeforeNewWave);
+        int expectedWave = 1 + (playerMoveCount / _settings.MovesBeforeNewWave);
 
         if (expectedWave > _currentWave)
         {
             _currentWave = expectedWave;
-            _currentSpeedMultiplier = 1.0 + ((_currentWave - 1) * SpeedIncreasePerWave);
+            _currentSpeedMultiplier = _settings.EnemySpeedMultiplier * (1.0 + ((_currentWave - 1) * _settings.SpeedIncreasePerWave));
 
             int enemiesToSpawn = 1 + (_currentWave / 7);
 
@@ -700,7 +835,7 @@ public class EnemyManager
 
             foreach (var enemy in _enemies)
             {
-                enemy.IncreaseSpeed(SpeedIncreasePerWave);
+                enemy.IncreaseSpeed(_settings.SpeedIncreasePerWave);
             }
         }
     }
@@ -715,25 +850,25 @@ public class EnemyManager
 
         switch (border)
         {
-            case 0: // Top border
+            case 0:
                 x = _random.Next(1, _worldWidth - 1);
                 y = 1;
                 break;
-            case 1: // Right border
+            case 1:
                 x = _worldWidth - 2;
                 y = _random.Next(1, _worldHeight - 1);
                 break;
-            case 2: // Bottom border
+            case 2:
                 x = _random.Next(1, _worldWidth - 1);
                 y = _worldHeight - 2;
                 break;
-            default: // Left border
+            default:
                 x = 1;
                 y = _random.Next(1, _worldHeight - 1);
                 break;
         }
 
-        _enemies.Add(new Enemy(x, y, speedMultiplier));
+        _enemies.Add(new Enemy(x, y, speedMultiplier, _settings.EnemyVisionRange));
     }
 
     /// <summary>
@@ -868,7 +1003,7 @@ public class GameRenderer
     /// <summary>
     /// Renders the complete game scene.
     /// </summary>
-    public void Render(Player player, EnemyManager enemyManager, ObstacleManager obstacleManager, TokenManager tokenManager)
+    public void Render(Player player, EnemyManager enemyManager, ObstacleManager obstacleManager, TokenManager tokenManager, Difficulty difficulty)
     {
         for (int y = 0; y < _height; y++)
         {
@@ -922,7 +1057,7 @@ public class GameRenderer
             }
         }
 
-        DrawHUD(player, enemyManager);
+        DrawHUD(player, enemyManager, difficulty);
 
         if (player.IsAlive && IsInBounds(player.Position))
         {
@@ -944,15 +1079,19 @@ public class GameRenderer
         }
     }
 
-    private void DrawHUD(Player player, EnemyManager enemyManager)
+    private void DrawHUD(Player player, EnemyManager enemyManager, Difficulty difficulty)
     {
         Console.SetCursorPosition(0, _height);
-        Console.Write($"Tokens: {player.TokensCollected}/{player.GetTokensNeeded()} | Wave: {enemyManager.GetCurrentWave()} | Enemies: {enemyManager.Enemies.Count}".PadRight(_width));
+        Console.Write($"[{difficulty.ToString().ToUpper()}] Tokens: {player.TokensCollected}/{player.GetTokensNeeded()} | Wave: {enemyManager.GetCurrentWave()} | Enemies: {enemyManager.Enemies.Count}".PadRight(_width));
         Console.SetCursorPosition(0, _height + 1);
-        Console.Write("WASD/Arrows: Move | Collect 10 tokens to WIN! | ESC: Quit".PadRight(_width));
+        Console.Write("WASD/Arrows: Move | Collect tokens to WIN! | ESC: Quit".PadRight(_width));
     }
 
-    public void RenderGameOver(Player player, int enemyCount, int wavesCompleted, bool won)
+    /// <summary>
+    /// Renders the game over screen and returns true if player wants to restart.
+    /// Only 'N' key exits the game, any other key restarts.
+    /// </summary>
+    public bool RenderGameOver(Player player, int enemyCount, int wavesCompleted, bool won, Difficulty difficulty)
     {
         Console.Clear();
         Console.WriteLine();
@@ -969,12 +1108,15 @@ public class GameRenderer
             Console.WriteLine("  ╚════════════════════════════════╝");
         }
         Console.WriteLine();
+        Console.WriteLine($"  Difficulty: {difficulty.ToString().ToUpper()}");
         Console.WriteLine($"  Tokens Collected: {player.TokensCollected}/{player.GetTokensNeeded()}");
         Console.WriteLine($"  Waves Survived: {wavesCompleted}");
         Console.WriteLine($"  Total Moves: {player.MoveCount}");
         Console.WriteLine();
-        Console.WriteLine("  Press any key to exit...");
-        Console.ReadKey(true);
+        Console.WriteLine("  Press N to Exit or any other key to Restart...");
+
+        var key = Console.ReadKey(true).Key;
+        return key != ConsoleKey.N; // Return true (restart) unless N is pressed
     }
 
     private bool IsInBounds(Position pos)
@@ -1000,18 +1142,22 @@ public class Game
     private readonly TokenManager _tokenManager;
     private readonly InputHandler _inputHandler;
     private readonly GameRenderer _renderer;
+    private readonly Difficulty _difficulty;
 
     private readonly int _worldWidth;
     private readonly int _worldHeight;
 
-    public Game(int width, int height)
+    public Game(int width, int height, Difficulty difficulty)
     {
         _worldWidth = width;
         _worldHeight = height;
+        _difficulty = difficulty;
 
-        _player = new Player(width / 2, height / 2);
-        _enemyManager = new EnemyManager(width, height);
-        _obstacleManager = new ObstacleManager(width, height);
+        var settings = DifficultySettings.GetSettings(difficulty);
+
+        _player = new Player(width / 2, height / 2, settings.TokensToWin);
+        _enemyManager = new EnemyManager(width, height, settings);
+        _obstacleManager = new ObstacleManager(width, height, settings.ObstacleCount);
         _tokenManager = new TokenManager(width, height);
         _inputHandler = new InputHandler(width, height);
         _renderer = new GameRenderer(width, height);
@@ -1021,14 +1167,17 @@ public class Game
         _tokenManager.SpawnTokens(_player.Position, _enemyManager.GetEnemyPositions(), _obstacleManager.Obstacles.ToList());
     }
 
-    public void Run()
+    /// <summary>
+    /// Runs the main game loop and returns true if player wants to restart.
+    /// </summary>
+    public bool Run()
     {
         Console.CursorVisible = true;
         _renderer.Initialize();
 
         try
         {
-            _renderer.Render(_player, _enemyManager, _obstacleManager, _tokenManager);
+            _renderer.Render(_player, _enemyManager, _obstacleManager, _tokenManager, _difficulty);
 
             while (_player.IsAlive && !_player.HasWon())
             {
@@ -1071,11 +1220,12 @@ public class Game
                     }
 
                     _enemyManager.CheckAndSpawnWave(_player.MoveCount);
-                    _renderer.Render(_player, _enemyManager, _obstacleManager, _tokenManager);
+                    _renderer.Render(_player, _enemyManager, _obstacleManager, _tokenManager, _difficulty);
                 }
             }
 
-            _renderer.RenderGameOver(_player, _enemyManager.Enemies.Count, _enemyManager.GetCurrentWave(), _player.HasWon());
+            // Show game over screen and return whether to restart
+            return _renderer.RenderGameOver(_player, _enemyManager.Enemies.Count, _enemyManager.GetCurrentWave(), _player.HasWon(), _difficulty);
         }
         finally
         {
